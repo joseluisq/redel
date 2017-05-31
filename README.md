@@ -1,6 +1,6 @@
 # redel
 
-> Replace strings occurrences between two strings delimiters.
+> Replace string occurrences between two string delimiters.
 
 _Development in progress..._
 
@@ -12,9 +12,9 @@ go get github.com/joseluisq/redel
 
 ## Usage
 
-__Redel__ provides an interface (around [Scanner](https://golang.org/pkg/text/scanner/)) for replace strings occurrences between two strings delimiters.
+__Redel__ provides an interface (around [Scanner](https://golang.org/pkg/text/scanner/)) for replace string occurrences between two string delimiters.
 
-`Replace` function scanns and replaces strings occurrences for the privided delimiters.
+`Replace` function scanns and replaces string occurrences for the privided delimiters.
 `Replace` requires a callback function that will be called for every successful replacement.
 The callback will receive two params:
 - `data` []byte (Each successful replaced byte)

@@ -6,8 +6,8 @@ import (
 	"io"
 )
 
-// Redel provides an interface (around Scanner) for replace strings occurrences
-// between two strings delimiters.
+// Redel provides an interface (around Scanner) for replace string occurrences
+// between two string delimiters.
 type Redel struct {
 	r           io.Reader // The reader provided by the client.
 	start       string    // Start string delimiter.
@@ -36,7 +36,7 @@ func NewRedel(r io.Reader, start string, end string, replacement string) *Redel 
 	}
 }
 
-// Replace function scanns and replaces strings occurrences
+// Replace function scanns and replaces string occurrences
 // for the privided delimiters.
 // Replace requires a callback function that will be called
 // for every successful replacement.
