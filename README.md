@@ -1,0 +1,100 @@
+# redel
+
+> __Re__place strings occurrences between two strings __del__imiters.
+
+_Development in progress..._
+
+## Install
+
+```sh
+go get github.com/joseluisq/redel
+```
+
+## Usage
+
+__Redel__ provides an interface (around [Scanner](https://golang.org/pkg/text/scanner/)) for replace strings occurrences between two strings delimiters.
+
+`Replace` function scanns and replaces strings occurrences for the privided delimiters.
+`Replace` requires a callback function that will be called for every successful replacement.
+The callback will receive two params:
+- `data` []byte (Each successful replaced byte)
+- `atEOF` bool (If loop is EOF)
+
+### String replacement
+
+```go
+package main
+
+import (
+	"github.com/joseluisq/redel"
+	"fmt"
+	"strings"
+)
+
+r := strings.NewReader(`Lorem ipsum dolor START nam risus END magna START suscipit. END varius START sapien END.`)
+
+// Pass some Reader and start delimiter, end delimiter and replacement sstrings.
+rep := redel.NewRedel(r, "START", "END", "REPLACEMENT")
+
+// Replace function requires a callback function
+// that will be called for every successful replacement.
+rep.Replace(func(data []byte, atEOF bool) {
+	fmt.Print(string(data))
+})
+// RESULT:
+// Lorem ipsum dolor REPLACEMENT magna REPLACEMENT varius REPLACEMENT.⏎
+```
+
+### File replacement
+
+```go
+package main
+
+import (
+	"github.com/joseluisq/redel"
+	"bufio"
+	"fmt"
+	"os"
+)
+
+r, err := os.Open("my_big_file.txt")
+
+if err != nil {
+	fmt.Println(err)
+	os.Exit(1)
+}
+
+defer r.Close()
+
+w, err := os.Create("my_big_file_replaced.txt")
+
+if err != nil {
+	fmt.Println(err)
+	os.Exit(1)
+}
+
+defer w.Close()
+
+var writer = bufio.NewWriter(w)
+
+rep := redel.NewRedel(r, "START", "END", "REPLACEMENT")
+rep.Replace(func(data []byte, atEOF bool) {
+	_, err := writer.Write(data)
+
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+})
+
+writer.Flush()
+```
+
+## Contributions
+
+[Pull requests](https://github.com/joseluisq/redel/pulls) and [issues](https://github.com/joseluisq/redel/issues) are very appreciated.
+
+## License
+MIT license
+
+© 2017 [José Luis Quintana](http://git.io/joseluisq)
