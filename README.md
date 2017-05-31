@@ -33,7 +33,7 @@ import (
 
 r := strings.NewReader(`Lorem ipsum dolor START nam risus END magna START suscipit. END varius START sapien END.`)
 
-// Pass some Reader and start delimiter, end delimiter and replacement sstrings.
+// Pass some Reader, start delimiter, end delimiter and replacement strings.
 rep := redel.NewRedel(r, "START", "END", "REPLACEMENT")
 
 // Replace function requires a callback function
