@@ -1,4 +1,4 @@
-# redel
+# redel [![Build Status](https://travis-ci.org/joseluisq/redel.svg?branch=master)](https://travis-ci.org/joseluisq/redel)
 
 > Replace string occurrences between two string delimiters.
 
