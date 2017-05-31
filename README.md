@@ -1,6 +1,6 @@
 # redel
 
-> __Re__place strings occurrences between two strings __del__imiters.
+> Replace strings occurrences between two strings delimiters.
 
 _Development in progress..._
 
