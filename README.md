@@ -2,8 +2,6 @@
 
 > Replace string occurrences between two string delimiters.
 
-_Development in progress..._
-
 ## Install
 
 ```sh
