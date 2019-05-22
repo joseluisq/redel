@@ -15,16 +15,31 @@ type Redel struct {
 	replacement string    // Replacement string.
 }
 
+// redelValues interface contains replacement values
+type redelValues struct {
+	start int    // Start index.
+	end   int    // End index.
+	value []byte // Value to replace.
+}
+
+// redelValues interface contains replacement values
+type redelValidator struct {
+	from      int
+	to        int
+	validFrom bool
+	validTo   bool
+}
+
 // EOF is a byte used for determine the EOF in scanning.
 var EOF = []byte("eof")
 
-// ScannerFilterFunc is the callback filter function that will be called per replacement match
+// ReplacementFilterFunc is the callback filter function that will be called per replacement match
 // which allows to control the processing's replacement (true or false)
-type ScannerFilterFunc func(matchValue []byte, atEOF bool) bool
+type ReplacementFilterFunc func(matchValue []byte) bool
 
-// ScannerFunc is the callback function that will be called
+// ReplacementFunc is the callback function that will be called
 // for every successful replacement.
-type ScannerFunc func(data []byte, atEOF bool)
+type ReplacementFunc func(data []byte, atEOF bool)
 
 // NewRedel returns a new Redel to read from r.
 // - r io.Reader (Input reader)
@@ -47,7 +62,7 @@ func NewRedel(r io.Reader, start string, end string, replacement string) *Redel 
 // The callback will receive two params:
 // - data []byte (Each successful replaced byte)
 // - atEOF bool (If loop is EOF)
-func (rd *Redel) Replace(callback ScannerFunc) {
+func (rd *Redel) Replace(replaceFunc ReplacementFunc) {
 	scanner := bufio.NewScanner(rd.r)
 
 	ScanByDelimiters := func(data []byte, atEOF bool) (advance int, token []byte, err error) {
@@ -81,18 +96,20 @@ func (rd *Redel) Replace(callback ScannerFunc) {
 
 		if bytes.HasSuffix(chunk, EOF) {
 			wchunk = bytes.Split(chunk, EOF)[0]
-			callback(wchunk, true)
+			replaceFunc(wchunk, true)
 		} else {
 			wchunk = append(chunk, rd.replacement...)
-			callback(wchunk, false)
+			replaceFunc(wchunk, false)
 		}
 	}
 }
 
 // FilterReplace function scanns and replaces string occurrences but using a filter function
 // to control the processing of every replacement (true or false)
-func (rd *Redel) FilterReplace(filterFunc ScannerFilterFunc, scannerFn ScannerFunc) {
+func (rd *Redel) FilterReplace(replaceFunc ReplacementFunc, filterFunc ReplacementFilterFunc, preserveDelimiters bool) {
 	scanner := bufio.NewScanner(rd.r)
+
+	var valuesData []redelValues
 
 	ScanByDelimiters := func(data []byte, atEOF bool) (advance int, token []byte, err error) {
 		endLen := len(rd.end)
@@ -106,11 +123,21 @@ func (rd *Redel) FilterReplace(filterFunc ScannerFilterFunc, scannerFn ScannerFu
 			if to := bytes.Index(data[from:], []byte(rd.end)); to >= 0 {
 				a := from + startLen
 				b := from + endLen + (to - endLen)
+
+				if !preserveDelimiters {
+					a = from
+					b = from + endLen + to
+				}
+
 				val := data[a:b]
 
-				if filterFunc(val, atEOF) {
-					return b, data[0:a], nil
-				}
+				valuesData = append(valuesData, redelValues{
+					start: a,
+					end:   b,
+					value: val,
+				})
+
+				return b, data[0:a], nil
 			}
 		}
 
@@ -124,16 +151,54 @@ func (rd *Redel) FilterReplace(filterFunc ScannerFilterFunc, scannerFn ScannerFu
 
 	scanner.Split(ScanByDelimiters)
 
-	for scanner.Scan() {
-		var wchunk []byte
-		var chunk = scanner.Bytes()
+	var vcounter int
+	var validator = new(redelValidator)
 
-		if bytes.HasSuffix(chunk, EOF) {
-			wchunk = bytes.Split(chunk, EOF)[0]
-			scannerFn(wchunk, true)
+	for scanner.Scan() {
+		var bytesW []byte
+		var bytesR = scanner.Bytes()
+
+		if bytes.HasSuffix(bytesR, EOF) {
+			bytesW = bytes.Split(bytesR, EOF)[0]
+			replaceFunc(bytesW, true)
 		} else {
-			wchunk = append(chunk, rd.replacement...)
-			scannerFn(wchunk, false)
+			var values = []byte("")
+
+			// make sure if `bytesR` contains valid delimiters
+			from := bytes.Index(bytesR, []byte(rd.start))
+
+			if !validator.validFrom && from >= 0 {
+				validator.from = from
+				validator.validFrom = true
+				validator.validTo = false
+			}
+
+			// contains valid `start` delimiter
+			if validator.validFrom {
+				// contains valid `end` delimiter
+				to := bytes.Index(bytesR, []byte(rd.end))
+
+				if !validator.validTo && to >= 0 {
+					validator.to = to
+					validator.validTo = true
+				}
+			}
+
+			// contains valid `start` and `end` delimiters
+			if validator.validFrom && validator.validTo {
+				values = valuesData[vcounter].value
+
+				validator = new(redelValidator)
+				vcounter++
+			}
+
+			if filterFunc(values) {
+				bytesW = append(bytesR, rd.replacement...)
+			} else {
+				bytesW = append(bytesR, values...)
+			}
+
+			replaceFunc(bytesW, false)
 		}
 	}
 }
