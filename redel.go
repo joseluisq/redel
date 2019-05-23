@@ -33,13 +33,17 @@ type redelValidator struct {
 // EOF is a byte used for determine the EOF in scanning.
 var EOF = []byte("eof")
 
-// ReplacementFilterFunc is the callback filter function that will be called per replacement match
-// which allows to control the processing's replacement (true or false)
-type ReplacementFilterFunc func(matchValue []byte) bool
+// FilterReplacementWithFunc is the callback filter function that will be called
+// per replacement match which allows to control the processing and return a custom replace
+type FilterReplacementWithFunc func(matchValue []byte) []byte
 
-// ReplacementFunc is the callback function that will be called
+// FilterReplacementFunc is the callback filter function that will be called per replacement match
+// which allows to control the processing's replacement (true or false)
+type FilterReplacementFunc func(matchValue []byte) bool
+
+// ReplacementMapFunc is the callback function that will be called
 // for every successful replacement.
-type ReplacementFunc func(data []byte, atEOF bool)
+type ReplacementMapFunc func(data []byte, atEOF bool)
 
 // NewRedel returns a new Redel to read from r.
 // - r io.Reader (Input reader)
@@ -55,14 +59,14 @@ func NewRedel(r io.Reader, start string, end string, replacement string) *Redel 
 	}
 }
 
-// Replace function scanns and replaces string occurrences
+// Replace function scans and replaces string occurrences
 // for the privided delimiters.
 // Replace requires a callback function that will be called
 // for every successful replacement.
 // The callback will receive two params:
 // - data []byte (Each successful replaced byte)
 // - atEOF bool (If loop is EOF)
-func (rd *Redel) Replace(replaceFunc ReplacementFunc) {
+func (rd *Redel) Replace(replaceFunc ReplacementMapFunc) {
 	scanner := bufio.NewScanner(rd.r)
 
 	ScanByDelimiters := func(data []byte, atEOF bool) (advance int, token []byte, err error) {
@@ -104,9 +108,9 @@ func (rd *Redel) Replace(replaceFunc ReplacementFunc) {
 	}
 }
 
-// FilterReplace function scanns and replaces string occurrences but using a filter function
-// to control the processing of every replacement (true or false)
-func (rd *Redel) FilterReplace(replaceFunc ReplacementFunc, filterFunc ReplacementFilterFunc, preserveDelimiters bool) {
+// FilterReplaceFull function scans and replaces string occurrences but using a filter function
+// to control the processing of every replacement
+func (rd *Redel) FilterReplaceFull(replaceMapFunc ReplacementMapFunc, filterFunc FilterReplacementWithFunc, preserveDelimiters bool, replaceWith bool) {
 	scanner := bufio.NewScanner(rd.r)
 	var valuesData []redelValues
 
@@ -156,19 +160,52 @@ func (rd *Redel) FilterReplace(replaceFunc ReplacementFunc, filterFunc Replaceme
 		bytesR := scanner.Bytes()
 		atEOF := bytes.HasSuffix(bytesR, EOF)
 
-		len := len(valuesData) - 1
+		valuesLen := len(valuesData) - 1
 
-		if !atEOF && len >= 0 {
-			v := valuesData[len].value
-			filterFunc(v)
+		var value []byte
+		var valueToReplace []byte
+
+		if !atEOF && valuesLen >= 0 {
+			value = valuesData[valuesLen].value
+			valueToReplace = filterFunc(value)
 		}
+
+		bytesW := bytesR
 
 		if atEOF {
-			bytesW := bytes.Split(bytesR, EOF)[0]
-			replaceFunc(bytesW, true)
+			bytesW = bytes.Split(bytesR, EOF)[0]
 		} else {
-			bytesW := append(bytesR, rd.replacement...)
-			replaceFunc(bytesW, false)
+			if replaceWith {
+				bytesW = append(bytesR, valueToReplace...)
+			} else {
+				if len(valueToReplace) > 0 && string(valueToReplace) == "0" {
+					bytesW = append(bytesR, value...)
+				} else {
+					bytesW = append(bytesR, rd.replacement...)
+				}
+			}
 		}
+
+		replaceMapFunc(bytesW, atEOF)
 	}
+}
+
+// FilterReplace function scans and replaces string occurrences controling the processing of every replacement via boolean return value
+func (rd *Redel) FilterReplace(replaceMapFunc ReplacementMapFunc, filterFunc FilterReplacementFunc, preserveDelimiters bool) {
+	rd.FilterReplaceFull(replaceMapFunc, func(matchValue []byte) []byte {
+		result := []byte("0")
+
+		ok := filterFunc(matchValue)
+
+		if ok {
+			result = []byte("1")
+		}
+
+		return result
+	}, preserveDelimiters, false)
+}
+
+// FilterReplaceWith function scans and replaces string occurrences controling the processing of every replacement via a custom returned []byte replacement
+func (rd *Redel) FilterReplaceWith(replaceMapFunc ReplacementMapFunc, filterReplaceWithFunc FilterReplacementWithFunc, preserveDelimiters bool) {
+	rd.FilterReplaceFull(replaceMapFunc, filterReplaceWithFunc, preserveDelimiters, true)
 }
