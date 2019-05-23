@@ -108,7 +108,6 @@ func (rd *Redel) Replace(replaceFunc ReplacementFunc) {
 // to control the processing of every replacement (true or false)
 func (rd *Redel) FilterReplace(replaceFunc ReplacementFunc, filterFunc ReplacementFilterFunc, preserveDelimiters bool) {
 	scanner := bufio.NewScanner(rd.r)
-
 	var valuesData []redelValues
 
 	ScanByDelimiters := func(data []byte, atEOF bool) (advance int, token []byte, err error) {
@@ -129,13 +128,15 @@ func (rd *Redel) FilterReplace(replaceFunc ReplacementFunc, filterFunc Replaceme
 					b = from + endLen + to
 				}
 
-				val := data[a:b]
+				v := data[a:b]
 
-				valuesData = append(valuesData, redelValues{
-					start: a,
-					end:   b,
-					value: val,
-				})
+				if len(v) > 0 {
+					valuesData = append(valuesData, redelValues{
+						start: a,
+						end:   b,
+						value: v,
+					})
+				}
 
 				return b, data[0:a], nil
 			}
@@ -151,53 +152,22 @@ func (rd *Redel) FilterReplace(replaceFunc ReplacementFunc, filterFunc Replaceme
 
 	scanner.Split(ScanByDelimiters)
 
-	var vcounter int
-	var validator = new(redelValidator)
-
 	for scanner.Scan() {
-		var bytesW []byte
-		var bytesR = scanner.Bytes()
+		bytesR := scanner.Bytes()
+		atEOF := bytes.HasSuffix(bytesR, EOF)
 
-		if bytes.HasSuffix(bytesR, EOF) {
-			bytesW = bytes.Split(bytesR, EOF)[0]
+		len := len(valuesData) - 1
+
+		if !atEOF && len >= 0 {
+			v := valuesData[len].value
+			filterFunc(v)
+		}
+
+		if atEOF {
+			bytesW := bytes.Split(bytesR, EOF)[0]
 			replaceFunc(bytesW, true)
 		} else {
-			var values = []byte("")
-
-			// make sure if `bytesR` contains valid delimiters
-			from := bytes.Index(bytesR, []byte(rd.start))
-
-			if !validator.validFrom && from >= 0 {
-				validator.from = from
-				validator.validFrom = true
-				validator.validTo = false
-			}
-
-			// contains valid `start` delimiter
-			if validator.validFrom {
-				// contains valid `end` delimiter
-				to := bytes.Index(bytesR, []byte(rd.end))
-
-				if !validator.validTo && to >= 0 {
-					validator.to = to
-					validator.validTo = true
-				}
-			}
-
-			// contains valid `start` and `end` delimiters
-			if validator.validFrom && validator.validTo {
-				values = valuesData[vcounter].value
-
-				validator = new(redelValidator)
-				vcounter++
-			}
-
-			if filterFunc(values) {
-				bytesW = append(bytesR, rd.replacement...)
-			} else {
-				bytesW = append(bytesR, values...)
-			}
-
+			bytesW := append(bytesR, rd.replacement...)
 			replaceFunc(bytesW, false)
 		}
 	}
