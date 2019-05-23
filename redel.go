@@ -9,10 +9,9 @@ import (
 // Redel provides an interface (around Scanner) for replace string occurrences
 // between two string delimiters.
 type Redel struct {
-	r           io.Reader // The reader provided by the client.
-	start       string    // Start string delimiter.
-	end         string    // End string delimiter.
-	replacement string    // Replacement string.
+	r     io.Reader // The reader provided by the client.
+	start string    // Start string delimiter.
+	end   string    // End string delimiter.
 }
 
 // redelValues interface contains replacement values
@@ -49,68 +48,30 @@ type ReplacementMapFunc func(data []byte, atEOF bool)
 // - r io.Reader (Input reader)
 // - start string (Start string delimiter)
 // - end string (End string delimiter)
-// - replacement string (Replacement string)
-func NewRedel(r io.Reader, start string, end string, replacement string) *Redel {
+func NewRedel(r io.Reader, start string, end string) *Redel {
 	return &Redel{
-		r:           r,
-		start:       start,
-		end:         end,
-		replacement: replacement,
+		r:     r,
+		start: start,
+		end:   end,
 	}
 }
 
-// Replace function scans and replaces string occurrences
-// for the privided delimiters.
-// Replace requires a callback function that will be called
-// for every successful replacement.
-// The callback will receive two params:
-// - data []byte (Each successful replaced byte)
-// - atEOF bool (If loop is EOF)
-func (rd *Redel) Replace(replaceFunc ReplacementMapFunc) {
-	scanner := bufio.NewScanner(rd.r)
-
-	ScanByDelimiters := func(data []byte, atEOF bool) (advance int, token []byte, err error) {
-		if atEOF && len(data) == 0 {
-			return 0, nil, nil
-		}
-
-		if i := bytes.Index(data, []byte(rd.start)); i >= 0 {
-			if len(rd.end) > 1 {
-				if b := bytes.Index(data, []byte(rd.end)); b >= 0 {
-					return b + len(rd.end), data[0:i], nil
-				}
-			} else if len(rd.start) > 1 {
-				return i + len(rd.start), data[0:i], nil
-			}
-		}
-
-		if atEOF && len(data) > 0 {
-			last := append(data[0:], EOF...)
-			return len(data), last, nil
-		}
-
-		return 0, nil, nil
-	}
-
-	scanner.Split(ScanByDelimiters)
-
-	for scanner.Scan() {
-		var wchunk []byte
-		var chunk = scanner.Bytes()
-
-		if bytes.HasSuffix(chunk, EOF) {
-			wchunk = bytes.Split(chunk, EOF)[0]
-			replaceFunc(wchunk, true)
-		} else {
-			wchunk = append(chunk, rd.replacement...)
-			replaceFunc(wchunk, false)
-		}
-	}
+// Replace function replaces every occurrence with a custom replacement token
+func (rd *Redel) Replace(replacement []byte, replaceMapFunc ReplacementMapFunc) {
+	rd.FilterReplaceWith(replaceMapFunc, func(value []byte) []byte {
+		return replacement
+	}, false)
 }
 
 // FilterReplaceFull function scans and replaces string occurrences but using a filter function
 // to control the processing of every replacement
-func (rd *Redel) FilterReplaceFull(replaceMapFunc ReplacementMapFunc, filterFunc FilterReplacementWithFunc, preserveDelimiters bool, replaceWith bool) {
+func (rd *Redel) FilterReplaceFull(
+	replaceMapFunc ReplacementMapFunc,
+	filterFunc FilterReplacementWithFunc,
+	preserveDelimiters bool,
+	replaceWith bool,
+	replacement []byte,
+) {
 	scanner := bufio.NewScanner(rd.r)
 	var valuesData []redelValues
 
@@ -126,11 +87,6 @@ func (rd *Redel) FilterReplaceFull(replaceMapFunc ReplacementMapFunc, filterFunc
 			if to := bytes.Index(data[from:], []byte(rd.end)); to >= 0 {
 				a := from + startLen
 				b := from + endLen + (to - endLen)
-
-				if !preserveDelimiters {
-					a = from
-					b = from + endLen + to
-				}
 
 				v := data[a:b]
 
@@ -156,17 +112,18 @@ func (rd *Redel) FilterReplaceFull(replaceMapFunc ReplacementMapFunc, filterFunc
 
 	scanner.Split(ScanByDelimiters)
 
+	counterDelimiterStart := false
+
 	for scanner.Scan() {
-		bytesR := scanner.Bytes()
+		bytesR := append([]byte(nil), scanner.Bytes()...)
 		atEOF := bytes.HasSuffix(bytesR, EOF)
 
 		valuesLen := len(valuesData) - 1
-
-		var value []byte
-		var valueToReplace []byte
+		value := []byte(nil)
+		valueToReplace := []byte(nil)
 
 		if !atEOF && valuesLen >= 0 {
-			value = valuesData[valuesLen].value
+			value = append([]byte(nil), valuesData[valuesLen].value...)
 			valueToReplace = filterFunc(value)
 		}
 
@@ -176,13 +133,28 @@ func (rd *Redel) FilterReplaceFull(replaceMapFunc ReplacementMapFunc, filterFunc
 			bytesW = bytes.Split(bytesR, EOF)[0]
 		} else {
 			if replaceWith {
+				// takes the callback value instead
 				bytesW = append(bytesR, valueToReplace...)
 			} else {
-				if len(valueToReplace) > 0 && string(valueToReplace) == "0" {
+				// don't replace and use the value instead
+				if len(valueToReplace) == 0 {
+					// takes the array value instead
 					bytesW = append(bytesR, value...)
 				} else {
-					bytesW = append(bytesR, rd.replacement...)
+					bytesW = append(bytesR, replacement...)
 				}
+			}
+		}
+
+		if !preserveDelimiters {
+			if counterDelimiterStart && bytes.Index(bytesW, []byte(rd.end)) >= 0 {
+				bytesW = bytes.Replace(bytesW, []byte(rd.end), []byte(nil), 1)
+				counterDelimiterStart = false
+			}
+
+			if !counterDelimiterStart && bytes.Index(bytesW, []byte(rd.start)) >= 0 {
+				bytesW = bytes.Replace(bytesW, []byte(rd.start), []byte(nil), 1)
+				counterDelimiterStart = true
 			}
 		}
 
@@ -190,10 +162,15 @@ func (rd *Redel) FilterReplaceFull(replaceMapFunc ReplacementMapFunc, filterFunc
 	}
 }
 
-// FilterReplace function scans and replaces string occurrences controling the processing of every replacement via boolean return value
-func (rd *Redel) FilterReplace(replaceMapFunc ReplacementMapFunc, filterFunc FilterReplacementFunc, preserveDelimiters bool) {
+// FilterReplace function scans and replaces string occurrences via a `bool` callback
+func (rd *Redel) FilterReplace(
+	replacement []byte,
+	replaceMapFunc ReplacementMapFunc,
+	filterFunc FilterReplacementFunc,
+	preserveDelimiters bool,
+) {
 	rd.FilterReplaceFull(replaceMapFunc, func(matchValue []byte) []byte {
-		result := []byte("0")
+		result := []byte(nil)
 
 		ok := filterFunc(matchValue)
 
@@ -202,10 +179,14 @@ func (rd *Redel) FilterReplace(replaceMapFunc ReplacementMapFunc, filterFunc Fil
 		}
 
 		return result
-	}, preserveDelimiters, false)
+	}, preserveDelimiters, false, replacement)
 }
 
-// FilterReplaceWith function scans and replaces string occurrences controling the processing of every replacement via a custom returned []byte replacement
-func (rd *Redel) FilterReplaceWith(replaceMapFunc ReplacementMapFunc, filterReplaceWithFunc FilterReplacementWithFunc, preserveDelimiters bool) {
-	rd.FilterReplaceFull(replaceMapFunc, filterReplaceWithFunc, preserveDelimiters, true)
+// FilterReplaceWith function scans and replaces string occurrences via a custom `[]byte` callback
+func (rd *Redel) FilterReplaceWith(
+	replaceMapFunc ReplacementMapFunc,
+	filterReplaceWithFunc FilterReplacementWithFunc,
+	preserveDelimiters bool,
+) {
+	rd.FilterReplaceFull(replaceMapFunc, filterReplaceWithFunc, preserveDelimiters, true, []byte(nil))
 }

@@ -9,12 +9,13 @@ import (
 func TestStringMatch(t *testing.T) {
 	r := strings.NewReader(`Lorem ipsum dolor START nam risus END magna START suscipit. END varius START sapien END.`)
 
-	rep := NewRedel(r, "START", "END", "REPLACEMENT")
+	rep := NewRedel(r, "START", "END")
 
-	var output = ""
-	var expected = "Lorem ipsum dolor REPLACEMENT magna REPLACEMENT varius REPLACEMENT."
+	replacement := []byte("REPLACEMENT")
+	output := ""
+	expected := "Lorem ipsum dolor REPLACEMENT magna REPLACEMENT varius REPLACEMENT."
 
-	rep.Replace(func(data []byte, atEOF bool) {
+	rep.Replace(replacement, func(data []byte, atEOF bool) {
 		output = output + string(data)
 	})
 
