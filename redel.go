@@ -3,6 +3,7 @@ package redel
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"io"
 )
 
@@ -10,16 +11,20 @@ type (
 	// Redel provides an interface (around Scanner) for replace string occurrences
 	// between two string delimiters.
 	Redel struct {
-		ioReader       io.Reader // The reader provided by the client.
-		startDelimiter string    // Start string delimiter.
-		endDelimiter   string    // End string delimiter.
+		Reader     io.Reader
+		Delimiters []Delimiter
 	}
 
-	// redelValues interface contains replacement values
-	redelValues struct {
-		startDelimiter int    // Start index.
-		endDelimiter   int    // End index.
-		value          []byte // Value to replace.
+	// Delimiter defines a replacement delimiters structure
+	Delimiter struct {
+		Start []byte
+		End   []byte
+	}
+
+	// replacementData interface contains intern replacing info.
+	replacementData struct {
+		index int
+		value []byte
 	}
 
 	// FilterValueFunc defines a filter function that will be called per replacement
@@ -40,14 +45,13 @@ var (
 )
 
 // New creates a new Redel instance.
-// - ioReader io.Reader (Input reader)
+// - Reader io.Reader (Input reader)
 // - startDelimiter string (Start string delimiter)
 // - endDelimiter string (End string delimiter)
-func New(ioReader io.Reader, startDelimiter string, endDelimiter string) *Redel {
+func New(reader io.Reader, delimiters []Delimiter) *Redel {
 	return &Redel{
-		ioReader:       ioReader,
-		startDelimiter: startDelimiter,
-		endDelimiter:   endDelimiter,
+		Reader:     reader,
+		Delimiters: delimiters,
 	}
 }
 
@@ -60,33 +64,44 @@ func (rd *Redel) replaceFilterFunc(
 	replaceWith bool,
 	replacement []byte,
 ) {
-	scanner := bufio.NewScanner(rd.ioReader)
-	var valuesData []redelValues
+	scanner := bufio.NewScanner(rd.Reader)
+	delimiters := rd.Delimiters
+
+	var valuesData []replacementData
 
 	ScanByDelimiters := func(data []byte, atEOF bool) (advance int, token []byte, err error) {
-		endLen := len(rd.endDelimiter)
-		startLen := len(rd.startDelimiter)
+		for i, del := range delimiters {
+			startLen := len(del.Start)
+			endLen := len(del.End)
 
-		if (startLen <= 0 || endLen <= 0) || (atEOF && len(data) == 0) {
-			return 0, nil, nil
-		}
+			// TODO: Fix correct processing of one delimiter
+			fmt.Println("(del) Start:", string(del.Start))
+			fmt.Println("(del) End:", string(del.End))
+			fmt.Println("----")
 
-		if from := bytes.Index(data, []byte(rd.startDelimiter)); from >= 0 {
-			if to := bytes.Index(data[from:], []byte(rd.endDelimiter)); to >= 0 {
-				a := from + startLen
-				b := from + endLen + (to - endLen)
+			if (startLen <= 0 || endLen <= 0) || (atEOF && len(data) == 0) {
+				return 0, nil, nil
+			}
 
-				v := data[a:b]
+			if from := bytes.Index(data, []byte(del.Start)); from >= 0 {
+				if to := bytes.Index(data[from:], []byte(del.End)); to >= 0 {
+					a := from + startLen
+					b := from + endLen + (to - endLen)
 
-				if len(v) > 0 {
-					valuesData = append(valuesData, redelValues{
-						startDelimiter: a,
-						endDelimiter:   b,
-						value:          v,
-					})
+					val := data[a:b]
+
+					if len(val) > 0 {
+						valuesData = append(valuesData, replacementData{
+							index: i,
+							value: val,
+						})
+						fmt.Println("i:", i)
+						fmt.Println("val:", string(val))
+						fmt.Println("---")
+					}
+
+					return b, data[0:a], nil
 				}
-
-				return b, data[0:a], nil
 			}
 		}
 
@@ -106,12 +121,16 @@ func (rd *Redel) replaceFilterFunc(
 		bytesR := append([]byte(nil), scanner.Bytes()...)
 		atEOF := bytes.HasSuffix(bytesR, EOF)
 
-		valuesLen := len(valuesData) - 1
+		// checks for a valid value
 		value := []byte(nil)
+		valuesLen := len(valuesData) - 1
 		valueToReplace := []byte(nil)
 
+		var replacementData replacementData
+
 		if !atEOF && valuesLen >= 0 {
-			value = append([]byte(nil), valuesData[valuesLen].value...)
+			replacementData = valuesData[valuesLen]
+			value := append([]byte(nil), replacementData.value...)
 			valueToReplace = filterFunc(value)
 		}
 
@@ -134,14 +153,20 @@ func (rd *Redel) replaceFilterFunc(
 			}
 		}
 
+		delimiter := delimiters[replacementData.index]
+
+		// fmt.Println("Start:", string(delimiter.Start))
+		// fmt.Println("End:", string(delimiter.End))
+		// fmt.Println("----")
+
 		if !preserveDelimiters {
-			if counterDelimiterStart && bytes.Index(bytesW, []byte(rd.endDelimiter)) >= 0 {
-				bytesW = bytes.Replace(bytesW, []byte(rd.endDelimiter), []byte(nil), 1)
+			if counterDelimiterStart && bytes.Index(bytesW, delimiter.End) >= 0 {
+				bytesW = bytes.Replace(bytesW, delimiter.End, []byte(nil), 1)
 				counterDelimiterStart = false
 			}
 
-			if !counterDelimiterStart && bytes.Index(bytesW, []byte(rd.startDelimiter)) >= 0 {
-				bytesW = bytes.Replace(bytesW, []byte(rd.startDelimiter), []byte(nil), 1)
+			if !counterDelimiterStart && bytes.Index(bytesW, delimiter.Start) >= 0 {
+				bytesW = bytes.Replace(bytesW, delimiter.Start, []byte(nil), 1)
 				counterDelimiterStart = true
 			}
 		}
@@ -151,9 +176,9 @@ func (rd *Redel) replaceFilterFunc(
 }
 
 // Replace function replaces every occurrence with a custom replacement token.
-func (rd *Redel) Replace(replacement string, replacementMapFunc ReplacementMapFunc) {
+func (rd *Redel) Replace(replacement []byte, replacementMapFunc ReplacementMapFunc) {
 	rd.ReplaceFilterWith(replacementMapFunc, func(value []byte) []byte {
-		return []byte(replacement)
+		return replacement
 	}, false)
 }
 
