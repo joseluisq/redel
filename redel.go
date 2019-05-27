@@ -23,8 +23,16 @@ type (
 
 	// replacementData interface contains intern replacing info.
 	replacementData struct {
-		index int
-		value []byte
+		delimiter Delimiter
+		value     []byte
+	}
+
+	// earlyDelimiter defines a found delimiter
+	earlyDelimiter struct {
+		value      []byte
+		delimiter  Delimiter
+		startIndex int
+		endIndex   int
 	}
 
 	// FilterValueFunc defines a filter function that will be called per replacement
@@ -70,39 +78,58 @@ func (rd *Redel) replaceFilterFunc(
 	var valuesData []replacementData
 
 	ScanByDelimiters := func(data []byte, atEOF bool) (advance int, token []byte, err error) {
-		for i, del := range delimiters {
+		var earlyDelimiters []earlyDelimiter
+		var closerDelimiter earlyDelimiter
+
+		if atEOF && len(data) == 0 {
+			return 0, nil, nil
+		}
+
+		for _, del := range delimiters {
 			startLen := len(del.Start)
 			endLen := len(del.End)
 
-			// TODO: Fix correct processing of one delimiter
-			fmt.Println("(del) Start:", string(del.Start))
-			fmt.Println("(del) End:", string(del.End))
-			fmt.Println("----")
-
-			if (startLen <= 0 || endLen <= 0) || (atEOF && len(data) == 0) {
-				return 0, nil, nil
+			if startLen <= 0 || endLen <= 0 {
+				continue
 			}
 
+			// store every found delimiter
 			if from := bytes.Index(data, []byte(del.Start)); from >= 0 {
 				if to := bytes.Index(data[from:], []byte(del.End)); to >= 0 {
 					a := from + startLen
 					b := from + endLen + (to - endLen)
-
 					val := data[a:b]
 
-					if len(val) > 0 {
-						valuesData = append(valuesData, replacementData{
-							index: i,
-							value: val,
-						})
-						fmt.Println("i:", i)
-						fmt.Println("val:", string(val))
-						fmt.Println("---")
-					}
-
-					return b, data[0:a], nil
+					earlyDelimiters = append(earlyDelimiters, earlyDelimiter{
+						value:      val,
+						delimiter:  del,
+						startIndex: a,
+						endIndex:   b,
+					})
 				}
 			}
+		}
+
+		if len(earlyDelimiters) > 0 {
+			// Determine the closer delimiter
+			for i, del := range earlyDelimiters {
+				if i == 0 || del.startIndex < closerDelimiter.startIndex {
+					closerDelimiter = del
+				}
+			}
+
+			// Assign and check the closer delimiter
+			delimiter := closerDelimiter.delimiter
+			val := closerDelimiter.value
+
+			if len(val) > 0 {
+				valuesData = append(valuesData, replacementData{
+					delimiter: delimiter,
+					value:     val,
+				})
+			}
+
+			return closerDelimiter.endIndex, data[0:closerDelimiter.startIndex], nil
 		}
 
 		if atEOF && len(data) > 0 {
@@ -117,11 +144,12 @@ func (rd *Redel) replaceFilterFunc(
 
 	counterDelimiterStart := false
 
+	// Scan every token based on current split function
 	for scanner.Scan() {
 		bytesR := append([]byte(nil), scanner.Bytes()...)
 		atEOF := bytes.HasSuffix(bytesR, EOF)
 
-		// checks for a valid value
+		// Checks for a valid value
 		value := []byte(nil)
 		valuesLen := len(valuesData) - 1
 		valueToReplace := []byte(nil)
@@ -130,7 +158,7 @@ func (rd *Redel) replaceFilterFunc(
 
 		if !atEOF && valuesLen >= 0 {
 			replacementData = valuesData[valuesLen]
-			value := append([]byte(nil), replacementData.value...)
+			value = append([]byte(nil), replacementData.value...)
 			valueToReplace = filterFunc(value)
 		}
 
@@ -153,21 +181,26 @@ func (rd *Redel) replaceFilterFunc(
 			}
 		}
 
-		delimiter := delimiters[replacementData.index]
+		delimiter := replacementData.delimiter
 
-		// fmt.Println("Start:", string(delimiter.Start))
-		// fmt.Println("End:", string(delimiter.End))
-		// fmt.Println("----")
-
+		// Preserve or remove delimiters
 		if !preserveDelimiters {
+			// TODO: Replace delimiters propertly
+			fmt.Println("DATA:", string(bytesW))
+
+			if bytes.Index(bytesW, delimiter.Start) >= 0 {
+				fmt.Println("VALUE:", string(value))
+				fmt.Println("--")
+				bytesW = bytes.Replace(bytesW, delimiter.Start, []byte(nil), 1)
+				counterDelimiterStart = true
+			}
+
 			if counterDelimiterStart && bytes.Index(bytesW, delimiter.End) >= 0 {
 				bytesW = bytes.Replace(bytesW, delimiter.End, []byte(nil), 1)
 				counterDelimiterStart = false
-			}
-
-			if !counterDelimiterStart && bytes.Index(bytesW, delimiter.Start) >= 0 {
-				bytesW = bytes.Replace(bytesW, delimiter.Start, []byte(nil), 1)
-				counterDelimiterStart = true
+				fmt.Println("END:", string(delimiter.End))
+				fmt.Println("------------------------------------------------")
+				fmt.Println("")
 			}
 		}
 
