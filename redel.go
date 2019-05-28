@@ -3,7 +3,6 @@ package redel
 import (
 	"bufio"
 	"bytes"
-	"fmt"
 	"io"
 )
 
@@ -129,7 +128,10 @@ func (rd *Redel) replaceFilterFunc(
 				})
 			}
 
-			return closerDelimiter.endIndex, data[0:closerDelimiter.startIndex], nil
+			endIndex := closerDelimiter.endIndex
+			startIndex := closerDelimiter.startIndex
+
+			return endIndex, data[0:startIndex], nil
 		}
 
 		if atEOF && len(data) > 0 {
@@ -156,7 +158,7 @@ func (rd *Redel) replaceFilterFunc(
 
 		var replacementData replacementData
 
-		if !atEOF && valuesLen >= 0 {
+		if valuesLen >= 0 {
 			replacementData = valuesData[valuesLen]
 			value = append([]byte(nil), replacementData.value...)
 			valueToReplace = filterFunc(value)
@@ -185,22 +187,17 @@ func (rd *Redel) replaceFilterFunc(
 
 		// Preserve or remove delimiters
 		if !preserveDelimiters {
-			// TODO: Replace delimiters propertly
-			fmt.Println("DATA:", string(bytesW))
-
-			if bytes.Index(bytesW, delimiter.Start) >= 0 {
-				fmt.Println("VALUE:", string(value))
-				fmt.Println("--")
+			if !counterDelimiterStart && bytes.Index(bytesW, delimiter.Start) >= 0 {
 				bytesW = bytes.Replace(bytesW, delimiter.Start, []byte(nil), 1)
 				counterDelimiterStart = true
-			}
-
-			if counterDelimiterStart && bytes.Index(bytesW, delimiter.End) >= 0 {
+			} else if counterDelimiterStart && bytes.Index(bytesW, delimiter.End) >= 0 {
 				bytesW = bytes.Replace(bytesW, delimiter.End, []byte(nil), 1)
 				counterDelimiterStart = false
-				fmt.Println("END:", string(delimiter.End))
-				fmt.Println("------------------------------------------------")
-				fmt.Println("")
+
+				if !counterDelimiterStart && bytes.Index(bytesW, delimiter.Start) >= 0 {
+					bytesW = bytes.Replace(bytesW, delimiter.Start, []byte(nil), 1)
+					counterDelimiterStart = true
+				}
 			}
 		}
 

@@ -1,31 +1,56 @@
 package redel
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 )
 
 // TestStrMatch tests if a string is replaced correctly.
-func TestStringMatch(t *testing.T) {
-	str := "(Lorem ) ipsum dolor ( nam risus ) magna ( suscipit. ) varius ( sapien )."
+func TestReplaceString(t *testing.T) {
+	str := "(Lorem ( ) ipsum dolor ( nam risus ) magna ( suscipit. ) varius ( sapien )."
+
 	r := strings.NewReader(str)
 
 	rep := New(r, []Delimiter{
 		{Start: []byte("("), End: []byte(")")},
 	})
 
+	expectedStr := "REPLACEMENT ipsum dolor REPLACEMENT magna REPLACEMENT varius REPLACEMENT."
 	replacement := []byte("REPLACEMENT")
 	output := ""
-	expected := "Lorem ipsum dolor REPLACEMENT magna REPLACEMENT varius REPLACEMENT."
 
 	rep.Replace(replacement, func(data []byte, atEOF bool) {
 		output = output + string(data)
 	})
 
-	fmt.Println(output)
+	if output != expectedStr {
+		t.Fatal("(Replace) Failed to match strings!")
+	}
+}
 
-	if output != expected {
-		t.Fatal("Failed to match strings!")
+func TestReplaceFilterString(t *testing.T) {
+	str := "(Lorem ( ) ipsum dolor ( nam risus ) magna ( suscipit. ) varius ( sapien )."
+
+	r := strings.NewReader(str)
+
+	rep := New(r, []Delimiter{
+		{Start: []byte("("), End: []byte(")")},
+	})
+
+	expectedStr := "REPLACEMENT ipsum dolor REPLACEMENT magna REPLACEMENT varius REPLACEMENT."
+	replacement := []byte("REPLACEMENT")
+
+	output := ""
+
+	filterFunc := func(matchValue []byte) bool {
+		return true
+	}
+
+	rep.ReplaceFilter(replacement, func(data []byte, atEOF bool) {
+		output = output + string(data)
+	}, filterFunc, false)
+
+	if output != expectedStr {
+		t.Fatal("(ReplaceFilter) Failed to match strings!")
 	}
 }
