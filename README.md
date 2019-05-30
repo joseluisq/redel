@@ -1,6 +1,8 @@
 # redel [![Build Status](https://travis-ci.org/joseluisq/redel.svg?branch=master)](https://travis-ci.org/joseluisq/redel)
 
-> Replace string occurrences between two string delimiters.
+> Replace byte occurrences between two byte delimiters.
+
+__Redel__ provides an small interface around [Scanner](https://golang.org/pkg/text/scanner/) for replace and filter byte occurrences between two byte delimiters. It supports an array of byte-pairs replacements with a map and filter callbacks as params in order to control every replacement.
 
 ## Install
 
@@ -8,15 +10,41 @@
 go get github.com/joseluisq/redel
 ```
 
+## API
+
+### New
+
+It creates a new `Redel` instance.
+
+```go
+func New(reader io.Reader, delimiters []Delimiter) *Redel
+```
+
+### Replace
+
+`Replace` function replaces every occurrence with a custom replacement token.
+
+```go
+func Replace(replacement []byte, mapFunc ReplacementMapFunc)
+```
+
+### ReplaceFilter
+
+`ReplaceFilter` function scans and replaces byte occurrences filtering every replacement value via a bool callback.
+
+```go
+func ReplaceFilter(replacement []byte, mapFunc ReplacementMapFunc, filterFunc FilterValueFunc, preserveDelimiters bool)
+```
+
+### ReplaceFilterWith
+
+`ReplaceFilterWith` function scans and replaces byte occurrences filtering every replacement value via a custom replacement callback.
+
+```go
+func ReplaceFilterWith(mapFunc ReplacementMapFunc, filterReplaceFunc FilterValueReplaceFunc, preserveDelimiters bool)
+```
+
 ## Usage
-
-__Redel__ provides an interface (around [Scanner](https://golang.org/pkg/text/scanner/)) for replace string occurrences between two string delimiters.
-
-`Replace` function scanns and replaces string occurrences for the privided delimiters.
-`Replace` requires a callback function that will be called for every successful replacement.
-The callback will receive two params:
-- `data` []byte (Each successful replaced byte)
-- `atEOF` bool (If loop is EOF)
 
 ### String replacement
 
@@ -24,19 +52,22 @@ The callback will receive two params:
 package main
 
 import (
-	"github.com/joseluisq/redel"
 	"fmt"
 	"strings"
+
+	"github.com/joseluisq/redel"
 )
 
-r := strings.NewReader(`Lorem ipsum dolor START nam risus END magna START suscipit. END varius START sapien END.`)
+reader := strings.NewReader(`Lorem ipsum dolor START nam risus END magna START suscipit. END varius START sapien END.`)
 
-// Pass some Reader, start delimiter, end delimiter and replacement strings.
-rep := redel.NewRedel(r, "START", "END", "REPLACEMENT")
+// Pass some Reader and bytes delimiters (`Start` and `End`)
+r := redel.New(reader, []Delimiter{
+	{Start: []byte("START"), End: []byte("END")},
+})
 
 // Replace function requires a callback function
 // that will be called for every successful replacement.
-rep.Replace(func(data []byte, atEOF bool) {
+r.Replace([]byte("REPLACEMENT"), func(data []byte, atEOF bool) {
 	fmt.Print(string(data))
 })
 // RESULT:
@@ -49,34 +80,38 @@ rep.Replace(func(data []byte, atEOF bool) {
 package main
 
 import (
-	"github.com/joseluisq/redel"
 	"bufio"
 	"fmt"
 	"os"
+
+	"github.com/joseluisq/redel"
 )
 
-r, err := os.Open("my_big_file.txt")
+reader, err := os.Open("my_big_file.txt")
 
 if err != nil {
 	fmt.Println(err)
 	os.Exit(1)
 }
 
-defer r.Close()
+defer reader.Close()
 
-w, err := os.Create("my_big_file_replaced.txt")
+writer, err := os.Create("my_big_file_replaced.txt")
 
 if err != nil {
 	fmt.Println(err)
 	os.Exit(1)
 }
 
-defer w.Close()
+defer writer.Close()
 
-var writer = bufio.NewWriter(w)
+var writer = bufio.NewWriter(writer)
 
-rep := redel.NewRedel(r, "START", "END", "REPLACEMENT")
-rep.Replace(func(data []byte, atEOF bool) {
+// Use Redel API
+r := redel.New(reader, []Delimiter{
+	{Start: []byte("START"), End: []byte("END")},
+})
+r.Replace([]byte("REPLACEMENT"), (func(data []byte, atEOF bool) {
 	_, err := writer.Write(data)
 
 	if err != nil {
@@ -95,4 +130,4 @@ writer.Flush()
 ## License
 MIT license
 
-© 2017 [José Luis Quintana](http://git.io/joseluisq)
+© 2017-present [Jose Quintana](http://git.io/joseluisq)

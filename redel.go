@@ -34,16 +34,16 @@ type (
 		endIndex   int
 	}
 
+	// ReplacementMapFunc defines a map function that will be called for every scan splitted token.
+	ReplacementMapFunc func(data []byte, atEOF bool)
+
 	// FilterValueFunc defines a filter function that will be called per replacement
 	// which supports a return `bool` value to apply the replacement or not.
 	FilterValueFunc func(matchValue []byte) bool
 
 	// FilterValueReplaceFunc defines a filter function that will be called per replacement
-	// which supports a return `[]byte` value to customize the replacement.
+	// which supports a return `[]byte` value to customize the replacement value.
 	FilterValueReplaceFunc func(matchValue []byte) []byte
-
-	// ReplacementMapFunc defines a map function that will be called per scan token.
-	ReplacementMapFunc func(data []byte, atEOF bool)
 )
 
 var (
@@ -52,9 +52,6 @@ var (
 )
 
 // New creates a new Redel instance.
-// - Reader io.Reader (Input reader)
-// - startDelimiter string (Start string delimiter)
-// - endDelimiter string (End string delimiter)
 func New(reader io.Reader, delimiters []Delimiter) *Redel {
 	return &Redel{
 		Reader:     reader,
@@ -62,8 +59,8 @@ func New(reader io.Reader, delimiters []Delimiter) *Redel {
 	}
 }
 
-// replaceFilterFunc API function which scans and replace string by supporting different options.
-// It's used by API's replace methods.
+// replaceFilterFunc is the API function which scans and replace bytes supporting different options.
+// It's used by API's replace functions.
 func (rd *Redel) replaceFilterFunc(
 	replacementMapFunc ReplacementMapFunc,
 	filterFunc FilterValueReplaceFunc,
@@ -84,6 +81,7 @@ func (rd *Redel) replaceFilterFunc(
 			return 0, nil, nil
 		}
 
+		// iterate array of delimiters
 		for _, del := range delimiters {
 			startLen := len(del.Start)
 			endLen := len(del.End)
@@ -206,21 +204,20 @@ func (rd *Redel) replaceFilterFunc(
 }
 
 // Replace function replaces every occurrence with a custom replacement token.
-func (rd *Redel) Replace(replacement []byte, replacementMapFunc ReplacementMapFunc) {
-	rd.ReplaceFilterWith(replacementMapFunc, func(value []byte) []byte {
+func (rd *Redel) Replace(replacement []byte, mapFunc ReplacementMapFunc) {
+	rd.ReplaceFilterWith(mapFunc, func(value []byte) []byte {
 		return replacement
 	}, false)
 }
 
-// ReplaceFilter function scans and replaces string occurrences
-// filtering replacement values via a return `bool` value.
+// ReplaceFilter function scans and replaces byte occurrences filtering every replacement value via a bool callback.
 func (rd *Redel) ReplaceFilter(
 	replacement []byte,
-	replacementMapFunc ReplacementMapFunc,
+	mapFunc ReplacementMapFunc,
 	filterFunc FilterValueFunc,
 	preserveDelimiters bool,
 ) {
-	rd.replaceFilterFunc(replacementMapFunc, func(matchValue []byte) []byte {
+	rd.replaceFilterFunc(mapFunc, func(matchValue []byte) []byte {
 		result := []byte(nil)
 
 		ok := filterFunc(matchValue)
@@ -233,7 +230,7 @@ func (rd *Redel) ReplaceFilter(
 	}, preserveDelimiters, false, replacement)
 }
 
-// ReplaceFilterWith function scans and replaces string occurrences via a custom replacement callback.
+// ReplaceFilterWith function scans and replaces byte occurrences via a custom replacement callback.
 func (rd *Redel) ReplaceFilterWith(
 	mapFunc ReplacementMapFunc,
 	filterReplaceFunc FilterValueReplaceFunc,

@@ -5,10 +5,10 @@ import (
 	"testing"
 )
 
+const str = "(Lorem ( ) ipsum dolor ( nam risus ) magna ( suscipit. ) varius ( sapien )."
+
 // TestStrMatch tests if a string is replaced correctly.
 func TestReplaceString(t *testing.T) {
-	str := "(Lorem ( ) ipsum dolor ( nam risus ) magna ( suscipit. ) varius ( sapien )."
-
 	r := strings.NewReader(str)
 
 	rep := New(r, []Delimiter{
@@ -29,8 +29,6 @@ func TestReplaceString(t *testing.T) {
 }
 
 func TestReplaceFilterString(t *testing.T) {
-	str := "(Lorem ( ) ipsum dolor ( nam risus ) magna ( suscipit. ) varius ( sapien )."
-
 	r := strings.NewReader(str)
 
 	rep := New(r, []Delimiter{
