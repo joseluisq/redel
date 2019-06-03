@@ -142,7 +142,9 @@ func (rd *Redel) replaceFilterFunc(
 
 	scanner.Split(ScanByDelimiters)
 
-	counterDelimiterStart := false
+	// Variables to control delimiters checking
+	hasStartPrevDelimiter := false
+	var previousDelimiter Delimiter
 
 	// Scan every token based on current split function
 	for scanner.Scan() {
@@ -163,38 +165,51 @@ func (rd *Redel) replaceFilterFunc(
 		}
 
 		bytesW := bytesR
+		delimiterData := replacementData.delimiter
 
-		if atEOF {
-			bytesW = bytes.Split(bytesR, EOF)[0]
-		} else {
-			if replaceWith {
-				// takes the callback value instead
-				bytesW = append(bytesR, valueToReplace...)
-			} else {
-				// don't replace and use the value instead
-				if len(valueToReplace) == 0 {
-					// takes the array value instead
-					bytesW = append(bytesR, value...)
-				} else {
-					bytesW = append(bytesR, replacement...)
+		// Remove delimiters only if `preserveDelimiters` is `false`
+		if !preserveDelimiters {
+			// 1. Check for the first start delimiter (once)
+			if !hasStartPrevDelimiter && bytes.HasSuffix(bytesW, delimiterData.Start) {
+				bytesW = bytes.Replace(bytesW, delimiterData.Start, []byte(nil), 1)
+				previousDelimiter = delimiterData
+				hasStartPrevDelimiter = true
+			}
+
+			// 2. Next check for start and end delimiters (many times)
+			if hasStartPrevDelimiter {
+				hasPrevEndDelimiter := false
+
+				// 2.1. Check for a previous end delimiter (in current data)
+				if bytes.HasPrefix(bytesW, previousDelimiter.End) {
+					bytesW = bytes.Replace(bytesW, previousDelimiter.End, []byte(nil), 1)
+					previousDelimiter = delimiterData
+					hasPrevEndDelimiter = true
+				}
+
+				// 2.2. Check for a new start delimiter (in current data)
+				if hasPrevEndDelimiter && bytes.HasSuffix(bytesW, delimiterData.Start) {
+					bytesW = bytes.Replace(bytesW, delimiterData.Start, []byte(nil), 1)
+					hasPrevEndDelimiter = false
 				}
 			}
 		}
 
-		delimiter := replacementData.delimiter
-
-		// Preserve or remove delimiters
-		if !preserveDelimiters {
-			if !counterDelimiterStart && bytes.Index(bytesW, delimiter.Start) >= 0 {
-				bytesW = bytes.Replace(bytesW, delimiter.Start, []byte(nil), 1)
-				counterDelimiterStart = true
-			} else if counterDelimiterStart && bytes.Index(bytesW, delimiter.End) >= 0 {
-				bytesW = bytes.Replace(bytesW, delimiter.End, []byte(nil), 1)
-				counterDelimiterStart = false
-
-				if !counterDelimiterStart && bytes.Index(bytesW, delimiter.Start) >= 0 {
-					bytesW = bytes.Replace(bytesW, delimiter.Start, []byte(nil), 1)
-					counterDelimiterStart = true
+		// Last process to append or not values or replacements
+		if atEOF {
+			bytesW = bytes.Split(bytesW, EOF)[0]
+		} else {
+			if replaceWith {
+				// takes the callback value instead
+				bytesW = append(bytesW, valueToReplace...)
+			} else {
+				// don't replace and use the value instead
+				if len(valueToReplace) == 0 {
+					// takes the array value instead
+					bytesW = append(bytesW, value...)
+				} else {
+					// otherwise use the replacement value
+					bytesW = append(bytesW, replacement...)
 				}
 			}
 		}
@@ -205,9 +220,9 @@ func (rd *Redel) replaceFilterFunc(
 
 // Replace function replaces every occurrence with a custom replacement token.
 func (rd *Redel) Replace(replacement []byte, mapFunc ReplacementMapFunc) {
-	rd.ReplaceFilterWith(mapFunc, func(value []byte) []byte {
-		return replacement
-	}, false)
+	rd.replaceFilterFunc(mapFunc, func(value []byte) []byte {
+		return value
+	}, false, false, replacement)
 }
 
 // ReplaceFilter function scans and replaces byte occurrences filtering every replacement value via a bool callback.
