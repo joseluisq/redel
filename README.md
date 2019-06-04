@@ -2,7 +2,7 @@
 
 > Replace byte occurrences between two byte delimiters.
 
-__Redel__ provides an small interface around [Scanner](https://golang.org/pkg/text/scanner/) for replace and filter byte occurrences between two byte delimiters. It supports an array of byte-pairs replacements with a map and filter callbacks as params in order to control every replacement.
+__Redel__ provides a small interface around [Scanner](https://golang.org/pkg/text/scanner/) for replace and filter byte occurrences between two byte delimiters. It supports an array of byte-pair replacements with a map and filter callbacks in order to control every replacement.
 
 ## Install
 
@@ -38,7 +38,7 @@ func ReplaceFilter(replacement []byte, mapFunc ReplacementMapFunc, filterFunc Fi
 
 ### ReplaceFilterWith
 
-`ReplaceFilterWith` function scans and replaces byte occurrences filtering every replacement value via a custom replacement callback.
+`ReplaceFilterWith` function scans and replaces byte occurrences filtering every matched replacement value and supporting a value callback in order to customize those values.
 
 ```go
 func ReplaceFilterWith(mapFunc ReplacementMapFunc, filterReplaceFunc FilterValueReplaceFunc, preserveDelimiters bool)
