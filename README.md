@@ -10,40 +10,6 @@ __Redel__ provides a small interface around [Scanner](https://golang.org/pkg/tex
 go get github.com/joseluisq/redel
 ```
 
-## API
-
-### New
-
-It creates a new `Redel` instance.
-
-```go
-func New(reader io.Reader, delimiters []Delimiter) *Redel
-```
-
-### Replace
-
-`Replace` function replaces every occurrence with a custom replacement token.
-
-```go
-func Replace(replacement []byte, mapFunc ReplacementMapFunc)
-```
-
-### ReplaceFilter
-
-`ReplaceFilter` function scans and replaces byte occurrences filtering every replacement value via a bool callback.
-
-```go
-func ReplaceFilter(replacement []byte, mapFunc ReplacementMapFunc, filterFunc FilterValueFunc, preserveDelimiters bool)
-```
-
-### ReplaceFilterWith
-
-`ReplaceFilterWith` function scans and replaces byte occurrences filtering every matched replacement value and supporting a value callback in order to customize those values.
-
-```go
-func ReplaceFilterWith(mapFunc ReplacementMapFunc, filterReplaceFunc FilterValueReplaceFunc, preserveDelimiters bool)
-```
-
 ## Usage
 
 ### String replacement
@@ -121,6 +87,40 @@ r.Replace([]byte("REPLACEMENT"), (func(data []byte, atEOF bool) {
 })
 
 writer.Flush()
+```
+
+## API
+
+### New
+
+It creates a new `Redel` instance.
+
+```go
+func New(reader io.Reader, delimiters []Delimiter) *Redel
+```
+
+### Replace
+
+`Replace` function replaces every occurrence with a custom replacement token.
+
+```go
+func Replace(replacement []byte, mapFunc ReplacementMapFunc)
+```
+
+### ReplaceFilter
+
+`ReplaceFilter` function scans and replaces byte occurrences filtering every replacement value via a bool callback.
+
+```go
+func ReplaceFilter(replacement []byte, mapFunc ReplacementMapFunc, filterFunc FilterValueFunc, preserveDelimiters bool)
+```
+
+### ReplaceFilterWith
+
+`ReplaceFilterWith` function scans and replaces byte occurrences filtering every matched replacement value and supporting a value callback in order to customize those values.
+
+```go
+func ReplaceFilterWith(mapFunc ReplacementMapFunc, filterReplaceFunc FilterValueReplaceFunc, preserveDelimiters bool)
 ```
 
 ## Contributions
