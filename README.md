@@ -2,7 +2,7 @@
 
 > Replace byte occurrences between two byte delimiters.
 
-__Redel__ provides a small interface around [Scanner](https://golang.org/pkg/text/scanner/) for replace and filter byte occurrences between two byte delimiters. It supports an array of byte-pair replacements with a map and filter callbacks in order to control every replacement.
+__Redel__ provides a small interface around [Scanner](https://golang.org/pkg/text/scanner/) for replace and filter byte occurrences between two byte delimiters. It supports an array of byte-pair replacements with a map and filter closure in order to control every replacement and their values.
 
 ## Install
 
@@ -24,20 +24,32 @@ import (
 	"github.com/joseluisq/redel"
 )
 
-reader := strings.NewReader(`Lorem ipsum dolor START nam risus END magna START suscipit. END varius START sapien END.`)
+func main() {
+	// 1. Configure a Reader.
+	str := "Lorem ipsum dolor START nam risus END magna START suscipit. END varius START sapien END."
+	reader := strings.NewReader(str)
 
-// Pass some Reader and bytes delimiters (`Start` and `End`)
-r := redel.New(reader, []Delimiter{
-	{Start: []byte("START"), End: []byte("END")},
-})
+	// 2. Intance Redel using a Reader and an array of byte delimiters.
+	rd := redel.New(reader, []redel.Delimiter{
+		// 2.1 Define here the byte delimiters which ones should be applied
+		{Start: []byte("START"), End: []byte("END")},
 
-// Replace function requires a callback function
-// that will be called for every successful replacement.
-r.Replace([]byte("REPLACEMENT"), func(data []byte, atEOF bool) {
-	fmt.Print(string(data))
-})
-// RESULT:
-// Lorem ipsum dolor REPLACEMENT magna REPLACEMENT varius REPLACEMENT.⏎
+		// Note that this byte-pair is not present in our example,
+		// so it will be not applied.
+		{Start: []byte("BEGIN"), End: []byte("END")},
+	})
+
+	// 3. Finally, define a byte replacement and then replace occurrences.
+	//    Replace supports a closure which will be called for every scan-splitted token.
+	replacement := []byte("REPLACEMENT")
+	rd.Replace(replacement, func(data []byte, atEOF bool) {
+		// print out only for demonstration
+		fmt.Print(string(data))
+	})
+
+	// RESULT:
+	// Lorem ipsum dolor REPLACEMENT magna REPLACEMENT varius REPLACEMENT.⏎
+}
 ```
 
 ### File replacement
@@ -53,40 +65,49 @@ import (
 	"github.com/joseluisq/redel"
 )
 
-reader, err := os.Open("my_big_file.txt")
-
-if err != nil {
-	fmt.Println(err)
-	os.Exit(1)
-}
-
-defer reader.Close()
-
-writer, err := os.Create("my_big_file_replaced.txt")
-
-if err != nil {
-	fmt.Println(err)
-	os.Exit(1)
-}
-
-defer writer.Close()
-
-var writer = bufio.NewWriter(writer)
-
-// Use Redel API
-r := redel.New(reader, []Delimiter{
-	{Start: []byte("START"), End: []byte("END")},
-})
-r.Replace([]byte("REPLACEMENT"), (func(data []byte, atEOF bool) {
-	_, err := writer.Write(data)
+func main() {
+	// 1. Configure a Reader.
+	reader, err := os.Open("my_big_file.txt")
 
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-})
 
-writer.Flush()
+	defer reader.Close()
+
+	f, err := os.Create("my_big_file_replaced.txt")
+
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	defer f.Close()
+
+	var writer = bufio.NewWriter(f)
+
+	// 2. Intance Redel using a Reader and an array of byte delimiters.
+	replacement := []byte("REPLACEMENT")
+	rd := redel.New(reader, []redel.Delimiter{
+		// 2.1 Define here the byte delimiters which ones should be applied
+		{Start: []byte("START"), End: []byte("END")},
+		{Start: []byte("BEGIN"), End: []byte("END")},
+	})
+
+	// 3. Finally, define a byte replacement, replace occurrences and
+	//    save every scan-splitted token to the file.
+	rd.Replace(replacement, func(data []byte, atEOF bool) {
+		_, err := writer.Write(data)
+
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+	})
+
+	writer.Flush()
+}
 ```
 
 ## API
