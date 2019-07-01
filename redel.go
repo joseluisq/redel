@@ -1,3 +1,8 @@
+// Replace byte occurrences between two byte delimiters.
+//
+// Redel provides a small interface around bufio.Scanner for replace and filter byte occurrences
+// between two byte delimiters. It supports an array of byte-pair replacements
+// with a map and filter closures in order to control every replacement and their values.
 package redel
 
 import (
