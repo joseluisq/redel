@@ -195,7 +195,6 @@ func (rd *Redel) replaceFilterFunc(
 				// 2.2. Check for a new start delimiter (in current data)
 				if hasPrevEndDelimiter && bytes.HasSuffix(bytesW, delimiterData.Start) {
 					bytesW = bytes.Replace(bytesW, delimiterData.Start, []byte(nil), 1)
-					hasPrevEndDelimiter = false
 				}
 			}
 		}
