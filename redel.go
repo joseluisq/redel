@@ -153,7 +153,10 @@ func (rd *Redel) replaceFilterFunc(
 
 	// Scan every token based on current split function
 	for scanner.Scan() {
-		bytesR := scanner.Bytes()
+		bytesO := scanner.Bytes()
+		bytesR := make([]byte, len(bytesO))
+		copy(bytesR, bytesO)
+
 		atEOF := bytes.HasSuffix(bytesR, EOF)
 
 		// TODO: Validate values propertly
@@ -164,10 +167,9 @@ func (rd *Redel) replaceFilterFunc(
 
 		var replacementData replacementData
 
-		if !atEOF && valuesLen >= 0 {
+		if valuesLen >= 0 {
 			replacementData = valuesData[valuesLen]
 			value = append(value, replacementData.value...)
-
 			valueToReplace = filterFunc(value)
 		}
 
