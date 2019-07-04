@@ -96,17 +96,17 @@ func (rd *Redel) replaceFilterFunc(
 			}
 
 			// store every found delimiter
-			if from := bytes.Index(data, []byte(del.Start)); from >= 0 {
-				if to := bytes.Index(data[from:], []byte(del.End)); to >= 0 {
-					a := from + startLen
-					b := from + endLen + (to - endLen)
-					val := data[a:b]
+			if from := bytes.Index(data, del.Start); from >= 0 {
+				if to := bytes.Index(data[from:], del.End); to >= 0 {
+					x1 := from + startLen
+					x2 := from + endLen + (to - endLen)
+					val := data[x1:x2]
 
 					earlyDelimiters = append(earlyDelimiters, earlyDelimiter{
 						value:      val,
 						delimiter:  del,
-						startIndex: a,
-						endIndex:   b,
+						startIndex: x1,
+						endIndex:   x2,
 					})
 				}
 			}
@@ -122,12 +122,12 @@ func (rd *Redel) replaceFilterFunc(
 
 			// Assign and check the closer delimiter
 			delimiter := closerDelimiter.delimiter
-			val := closerDelimiter.value
+			delimiterVal := closerDelimiter.value
 
-			if len(val) > 0 {
+			if len(delimiterVal) > 0 {
 				valuesData = append(valuesData, replacementData{
 					delimiter: delimiter,
-					value:     val,
+					value:     delimiterVal,
 				})
 			}
 
@@ -153,30 +153,31 @@ func (rd *Redel) replaceFilterFunc(
 
 	// Scan every token based on current split function
 	for scanner.Scan() {
-		bytesR := append([]byte(nil), scanner.Bytes()...)
+		bytesR := scanner.Bytes()
 		atEOF := bytes.HasSuffix(bytesR, EOF)
 
-		// Checks for a valid value
+		// TODO: Validate values propertly
+
 		value := []byte(nil)
 		valuesLen := len(valuesData) - 1
 		valueToReplace := []byte(nil)
 
 		var replacementData replacementData
 
-		if valuesLen >= 0 {
+		if !atEOF && valuesLen >= 0 {
 			replacementData = valuesData[valuesLen]
-			value = append([]byte(nil), replacementData.value...)
+			value = append(value, replacementData.value...)
+
 			valueToReplace = filterFunc(value)
 		}
 
-		bytesW := bytesR
 		delimiterData := replacementData.delimiter
 
 		// Remove delimiters only if `preserveDelimiters` is `false`
 		if !preserveDelimiters {
 			// 1. Check for the first start delimiter (once)
-			if !hasStartPrevDelimiter && bytes.HasSuffix(bytesW, delimiterData.Start) {
-				bytesW = bytes.Replace(bytesW, delimiterData.Start, []byte(nil), 1)
+			if !hasStartPrevDelimiter && bytes.HasSuffix(bytesR, delimiterData.Start) {
+				bytesR = bytes.Replace(bytesR, delimiterData.Start, []byte(nil), 1)
 				previousDelimiter = delimiterData
 				hasStartPrevDelimiter = true
 			}
@@ -186,39 +187,39 @@ func (rd *Redel) replaceFilterFunc(
 				hasPrevEndDelimiter := false
 
 				// 2.1. Check for a previous end delimiter (in current data)
-				if bytes.HasPrefix(bytesW, previousDelimiter.End) {
-					bytesW = bytes.Replace(bytesW, previousDelimiter.End, []byte(nil), 1)
+				if bytes.HasPrefix(bytesR, previousDelimiter.End) {
+					bytesR = bytes.Replace(bytesR, previousDelimiter.End, []byte(nil), 1)
 					previousDelimiter = delimiterData
 					hasPrevEndDelimiter = true
 				}
 
 				// 2.2. Check for a new start delimiter (in current data)
-				if hasPrevEndDelimiter && bytes.HasSuffix(bytesW, delimiterData.Start) {
-					bytesW = bytes.Replace(bytesW, delimiterData.Start, []byte(nil), 1)
+				if hasPrevEndDelimiter && bytes.HasSuffix(bytesR, delimiterData.Start) {
+					bytesR = bytes.Replace(bytesR, delimiterData.Start, []byte(nil), 1)
 				}
 			}
 		}
 
 		// Last process to append or not values or replacements
 		if atEOF {
-			bytesW = bytes.Split(bytesW, EOF)[0]
+			bytesR = bytes.Split(bytesR, EOF)[0]
 		} else {
 			if replaceWith {
 				// takes the callback value instead
-				bytesW = append(bytesW, valueToReplace...)
+				bytesR = append(bytesR, valueToReplace...)
 			} else {
 				// don't replace and use the value instead
 				if len(valueToReplace) == 0 {
 					// takes the array value instead
-					bytesW = append(bytesW, value...)
+					bytesR = append(bytesR, value...)
 				} else {
 					// otherwise use the replacement value
-					bytesW = append(bytesW, replacement...)
+					bytesR = append(bytesR, replacement...)
 				}
 			}
 		}
 
-		replacementMapFunc(bytesW, atEOF)
+		replacementMapFunc(bytesR, atEOF)
 	}
 }
 
