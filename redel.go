@@ -53,7 +53,7 @@ type (
 
 var (
 	// EOF is an byte intended to determine the EOF in scanning.
-	EOF = []byte("eof")
+	EOF = []byte("%eof%")
 )
 
 // New creates a new Redel instance.
@@ -159,18 +159,16 @@ func (rd *Redel) replaceFilterFunc(
 
 		atEOF := bytes.HasSuffix(bytesR, EOF)
 
-		// TODO: Validate values propertly
-
-		value := []byte(nil)
-		valuesLen := len(valuesData) - 1
+		valueCurrent := []byte(nil)
+		valueCurrentLen := len(valuesData) - 1
 		valueToReplace := []byte(nil)
 
 		var replacementData replacementData
 
-		if valuesLen >= 0 {
-			replacementData = valuesData[valuesLen]
-			value = append(value, replacementData.value...)
-			valueToReplace = filterFunc(value)
+		if valueCurrentLen >= 0 {
+			replacementData = valuesData[valueCurrentLen]
+			valueCurrent = append(valueCurrent, replacementData.value...)
+			valueToReplace = filterFunc(valueCurrent)
 		}
 
 		delimiterData := replacementData.delimiter
@@ -213,7 +211,7 @@ func (rd *Redel) replaceFilterFunc(
 				// don't replace and use the value instead
 				if len(valueToReplace) == 0 {
 					// takes the array value instead
-					bytesR = append(bytesR, value...)
+					bytesR = append(bytesR, valueCurrent...)
 				} else {
 					// otherwise use the replacement value
 					bytesR = append(bytesR, replacement...)
