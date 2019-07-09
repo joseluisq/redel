@@ -8,6 +8,7 @@ package redel
 import (
 	"bufio"
 	"bytes"
+	"crypto/rand"
 	"io"
 )
 
@@ -17,6 +18,7 @@ type (
 	Redel struct {
 		Reader     io.Reader
 		Delimiters []Delimiter
+		eof        []byte
 	}
 
 	// Delimiter defines a replacement delimiters structure
@@ -51,16 +53,26 @@ type (
 	FilterValueReplaceFunc func(matchValue []byte) []byte
 )
 
-var (
-	// EOF is an byte intended to determine the EOF in scanning.
-	EOF = []byte("%eof%")
-)
+// getEOFToken generates a random EOF bytes token.
+func getEOFToken() []byte {
+	eof := make([]byte, 7)
+	_, err := rand.Read(eof)
+
+	if err != nil {
+		panic(err)
+	}
+
+	return eof
+}
 
 // New creates a new Redel instance.
 func New(reader io.Reader, delimiters []Delimiter) *Redel {
+	eof := getEOFToken()
+
 	return &Redel{
 		Reader:     reader,
 		Delimiters: delimiters,
+		eof:        eof,
 	}
 }
 
@@ -138,7 +150,7 @@ func (rd *Redel) replaceFilterFunc(
 		}
 
 		if atEOF && len(data) > 0 {
-			last := append(data[0:], EOF...)
+			last := append(data[0:], rd.eof...)
 			return len(data), last, nil
 		}
 
@@ -157,7 +169,7 @@ func (rd *Redel) replaceFilterFunc(
 		bytesR := make([]byte, len(bytesO))
 		copy(bytesR, bytesO)
 
-		atEOF := bytes.HasSuffix(bytesR, EOF)
+		atEOF := bytes.HasSuffix(bytesR, rd.eof)
 
 		valueCurrent := []byte(nil)
 		valueCurrentLen := len(valuesData) - 1
@@ -202,7 +214,7 @@ func (rd *Redel) replaceFilterFunc(
 
 		// Last process to append or not values or replacements
 		if atEOF {
-			bytesR = bytes.Split(bytesR, EOF)[0]
+			bytesR = bytes.Split(bytesR, rd.eof)[0]
 		} else {
 			if replaceWith {
 				// takes the callback value instead
