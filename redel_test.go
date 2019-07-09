@@ -6,15 +6,18 @@ import (
 	"testing"
 )
 
-const str = "(Lorem ( ) ipsum dolor ( nam risus ) magna ( suscipit. ) varius ( sapien )."
+const STR = "(Lorem ( ) ipsum dolor [ nam risus ] magna ( suscipit. ) varius { sapien }."
 
-// TestStrMatch tests if a string is replaced correctly.
+var delimiters = []Delimiter{
+	{Start: []byte("["), End: []byte("]")},
+	{Start: []byte("{"), End: []byte("}")},
+	{Start: []byte("("), End: []byte(")")},
+}
+
 func TestReplaceString(t *testing.T) {
-	r := strings.NewReader(str)
+	r := strings.NewReader(STR)
 
-	rep := New(r, []Delimiter{
-		{Start: []byte("("), End: []byte(")")},
-	})
+	rep := New(r, delimiters)
 
 	expectedStr := "REPLACEMENT ipsum dolor REPLACEMENT magna REPLACEMENT varius REPLACEMENT."
 	replacement := []byte("REPLACEMENT")
@@ -25,16 +28,14 @@ func TestReplaceString(t *testing.T) {
 	})
 
 	if output != expectedStr {
-		t.Fatal("(Replace) Failed to match strings!")
+		t.Fatal("1. (Replace) Failed to match strings!")
 	}
 }
 
 func TestReplaceFilterString(t *testing.T) {
-	r := strings.NewReader(str)
+	r := strings.NewReader(STR)
 
-	rep := New(r, []Delimiter{
-		{Start: []byte("("), End: []byte(")")},
-	})
+	rep := New(r, delimiters)
 
 	expectedStr := "REPLACEMENT ipsum dolor REPLACEMENT magna REPLACEMENT varius REPLACEMENT."
 	replacement := []byte("REPLACEMENT")
@@ -50,18 +51,16 @@ func TestReplaceFilterString(t *testing.T) {
 	}, filterFunc, false)
 
 	if output != expectedStr {
-		t.Fatal("(ReplaceFilter with no preserve delimiters) Failed to match strings!")
+		t.Fatal("2. (ReplaceFilter with no preserve delimiters) Failed to match strings!")
 	}
 }
 
 func TestReplaceFilterPreserveString(t *testing.T) {
-	r := strings.NewReader(str)
+	r := strings.NewReader(STR)
 
-	rep := New(r, []Delimiter{
-		{Start: []byte("("), End: []byte(")")},
-	})
+	rep := New(r, delimiters)
 
-	expectedStr := "(REPLACEMENT) ipsum dolor (REPLACEMENT) magna (REPLACEMENT) varius (REPLACEMENT)."
+	expectedStr := "(REPLACEMENT) ipsum dolor [REPLACEMENT] magna (REPLACEMENT) varius {REPLACEMENT}."
 	replacement := []byte("REPLACEMENT")
 
 	output := ""
@@ -75,15 +74,13 @@ func TestReplaceFilterPreserveString(t *testing.T) {
 	}, filterFunc, true)
 
 	if output != expectedStr {
-		t.Fatal("(ReplaceFilter + preserve delimiters) Failed to match strings!")
+		t.Fatal("3. (ReplaceFilter + preserve delimiters) Failed to match strings!")
 	}
 }
 func TestReplaceFilterWithString(t *testing.T) {
-	r := strings.NewReader(str)
+	r := strings.NewReader(STR)
 
-	rep := New(r, []Delimiter{
-		{Start: []byte("("), End: []byte(")")},
-	})
+	rep := New(r, delimiters)
 
 	expectedStr := "Lorem (  ipsum dolor CUSTOM magna  suscipit.  varius CUSTOM."
 	replaceWithThis := []byte("CUSTOM")
@@ -103,17 +100,15 @@ func TestReplaceFilterWithString(t *testing.T) {
 	}, filterFunc, false)
 
 	if output != expectedStr {
-		t.Fatal("(ReplaceFilterWith + no preserve delimiters) Failed to match strings!")
+		t.Fatal("4. (ReplaceFilterWith + no preserve delimiters) Failed to match strings!")
 	}
 }
 func TestReplaceFilterWithPreserveString(t *testing.T) {
-	r := strings.NewReader(str)
+	r := strings.NewReader(STR)
 
-	rep := New(r, []Delimiter{
-		{Start: []byte("("), End: []byte(")")},
-	})
+	rep := New(r, delimiters)
 
-	expectedStr := "(Lorem ( ) ipsum dolor ( nam risus ) magna ( suscipit. ) varius (CUSTOM)."
+	expectedStr := "(Lorem ( ) ipsum dolor [ nam risus ] magna ( suscipit. ) varius {CUSTOM}."
 	replaceWithThis := []byte("CUSTOM")
 	hasThisValue := []byte(" sapien ")
 
@@ -132,6 +127,6 @@ func TestReplaceFilterWithPreserveString(t *testing.T) {
 	}, filterFunc, true)
 
 	if output != expectedStr {
-		t.Fatal("(ReplaceFilterWith + preserve delimiters) Failed to match strings!")
+		t.Fatal("5. (ReplaceFilterWith + preserve delimiters) Failed to match strings!")
 	}
 }
