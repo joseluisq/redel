@@ -1,4 +1,4 @@
-# Redel [![GoDoc](https://godoc.org/github.com/joseluisq/redel?status.svg)](https://godoc.org/github.com/joseluisq/redel) [![!Build Status](https://travis-ci.org/joseluisq/redel.svg?branch=master)](https://travis-ci.org/joseluisq/redel) [![Go Report Card](https://goreportcard.com/badge/github.com/joseluisq/redel)](https://goreportcard.com/report/github.com/joseluisq/redel)
+# Redel [![!Build Status](https://travis-ci.org/joseluisq/redel.svg?branch=master)](https://travis-ci.org/joseluisq/redel) [![codecov](https://codecov.io/gh/joseluisq/redel/branch/master/graph/badge.svg)](https://codecov.io/gh/joseluisq/redel) [![Go Report Card](https://goreportcard.com/badge/github.com/joseluisq/redel)](https://goreportcard.com/report/github.com/joseluisq/redel) [![GoDoc](https://godoc.org/github.com/joseluisq/redel?status.svg)](https://godoc.org/github.com/joseluisq/redel)
 
 > Replace byte occurrences between two byte delimiters.
 

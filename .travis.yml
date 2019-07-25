@@ -3,9 +3,23 @@ language: go
 go:
   - 1.11.x
   - 1.12.x
+  - tip
+
+env:
+  - GO111MODULE=on
 
 notifications:
   email: false
 
 git:
   depth: 1
+
+install:
+  - make install
+
+after_success:
+  - bash <(curl -s https://codecov.io/bash)
+
+matrix:
+  allow_failures:
+    - go: tip
