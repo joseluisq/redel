@@ -3,7 +3,6 @@ language: go
 go:
   - 1.11.x
   - 1.12.x
-  - tip
 
 env:
   - GO111MODULE=on
@@ -17,9 +16,8 @@ git:
 install:
   - make install
 
-after_success:
-  - bash <(curl -s https://codecov.io/bash)
+script:
+  - make test
 
-matrix:
-  allow_failures:
-    - go: tip
+after_success:
+  - make coverage
