@@ -4,11 +4,12 @@
 
 __Redel__ provides a small interface around [bufio.Scanner](https://golang.org/pkg/bufio/#Scanner) for replace and filter byte occurrences between two byte delimiters. It supports an array of byte-pair replacements with a map and filter closures in order to control every replacement and their values.
 
-## Install
+## Supported Go versions
 
-```sh
-go get github.com/joseluisq/redel
-```
+- 1.10.3+
+- 1.11+
+
+💡For older versions, please use the latest `v2` tag.
 
 ## Usage
 
@@ -21,7 +22,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/joseluisq/redel"
+	"github.com/joseluisq/redel/v3"
 )
 
 func main() {
@@ -62,7 +63,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/joseluisq/redel"
+	"github.com/joseluisq/redel/v3"
 )
 
 func main() {
