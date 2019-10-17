@@ -1,4 +1,4 @@
-# Redel [![!Build Status](https://travis-ci.org/joseluisq/redel.svg?branch=master)](https://travis-ci.org/joseluisq/redel) [![codecov](https://codecov.io/gh/joseluisq/redel/branch/master/graph/badge.svg)](https://codecov.io/gh/joseluisq/redel) [![Go Report Card](https://goreportcard.com/badge/github.com/joseluisq/redel)](https://goreportcard.com/report/github.com/joseluisq/redel) [![GoDoc](https://godoc.org/github.com/joseluisq/redel?status.svg)](https://godoc.org/github.com/joseluisq/redel)
+# Redel [![Build Status](https://travis-ci.com/joseluisq/redel.svg?branch=master)](https://travis-ci.com/joseluisq/redel) [![codecov](https://codecov.io/gh/joseluisq/redel/branch/master/graph/badge.svg)](https://codecov.io/gh/joseluisq/redel) [![Go Report Card](https://goreportcard.com/badge/github.com/joseluisq/redel)](https://goreportcard.com/report/github.com/joseluisq/redel) [![GoDoc](https://godoc.org/github.com/joseluisq/redel?status.svg)](https://godoc.org/github.com/joseluisq/redel)
 
 > Replace byte occurrences between two byte delimiters.
 
@@ -9,7 +9,7 @@ __Redel__ provides a small interface around [bufio.Scanner](https://golang.org/p
 - 1.10.3+
 - 1.11+
 
-💡For older versions, please use the latest `v2` tag.
+💡 For older versions, please use the latest `v2` tag.
 
 ## Usage
 
@@ -149,9 +149,12 @@ func ReplaceFilterWith(mapFunc ReplacementMapFunc, filterReplaceFunc FilterValue
 
 ## Contributions
 
-[Pull requests](https://github.com/joseluisq/redel/pulls) and [issues](https://github.com/joseluisq/redel/issues) are very appreciated.
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in current work by you, as defined in the Apache-2.0 license, shall be dual licensed as described below, without any additional terms or conditions.
+
+Feel free to send some [Pull request](https://github.com/joseluisq/redel/pulls) or [issue](https://github.com/joseluisq/redel/issues).
 
 ## License
-MIT license
+
+This work is primarily distributed under the terms of both the [MIT license](LICENSE-MIT) and the [Apache License (Version 2.0)](LICENSE-APACHE).
 
 © 2017-present [Jose Quintana](http://git.io/joseluisq)
